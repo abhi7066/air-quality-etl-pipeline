@@ -3,7 +3,7 @@ use schema dev_db.consumption_sch;
 use warehouse adhoc_wh;
 
 
--- date dim
+-- date dimention table
 -- level-1 
 select 
         index_record_ts as measurement_time,
@@ -29,7 +29,7 @@ select
         group by 1,2,3,4,5,6
 )
 select 
-    hash(measurement_time) as date_id,
+    hash(measurement_time) as date_pk,
     *
 from step01_hr_data
 order by aqi_year,aqi_month,aqi_day,aqi_hour;
@@ -61,7 +61,7 @@ select * from date_dim;
 
 
 
--- location dim
+-- location dimention
 -- step-1
 select 
     LATITUDE,
@@ -119,7 +119,7 @@ from step01_unique_data
 order by 
     country, STATE, city, station;
 
-
+    
 -- fact table
 -- step-01
 select 
@@ -176,9 +176,11 @@ select
         station =  'Gangineni Cheruvu, Chittoor - APPCB' and 
         INDEX_RECORD_TS = '2024-03-01 18:00:00.000';
         
-select * from date_dim where date_id = 1635727249877756006;
-select * from location_dim where location_id = 3830234801511030131;
+select * from date_dim where date_pk = 1635727249877756006;
+select * from location_dim where location_pk = 3830234801511030131;
 
+
+-- Fact Table
 create or replace dynamic table air_quality_fact
     target_lag='30 min'
     warehouse=transform_wh

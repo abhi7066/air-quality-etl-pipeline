@@ -122,7 +122,7 @@ select
 -- step-2
 -- next task is to transpose it from rows to columns.
 create or replace dynamic table clean_flatten_aqi_dt
-    target_lag='30 min'
+    target_lag='DOWNSTREAM'
     warehouse=transform_wh
 as
 with step01_combine_pollutant_cte as (

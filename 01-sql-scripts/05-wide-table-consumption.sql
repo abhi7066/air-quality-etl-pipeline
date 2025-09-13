@@ -7,7 +7,7 @@ drop dynamic table aqi_final_wide_dt;
 create or replace function prominent_index(pm25 number, pm10 number, so2 number, no2 number, nh3 number, co number, o3 number)
 returns varchar
 language python
-runtime_version = '3.8'
+runtime_version = '3.9'
 handler = 'prominent_index'
 AS ' 
 def prominent_index(pm25, pm10, so2, no2, nh3, co, o3):
@@ -36,7 +36,7 @@ select prominent_index(56,70,12,4,17,47,3) ;
 create or replace function three_sub_index_criteria(pm25 number, pm10 number, so2 number, no2 number, nh3 number, co number, o3 number)
 returns number(38,0)
 language python
-runtime_version = '3.8'
+runtime_version = '3.9'
 HANDLER = 'three_sub_index_criteria'
 AS '
 def three_sub_index_criteria(pm25, pm10, so2, no2, nh3, co, o3  ):

@@ -2,8 +2,8 @@ name: india_air_quality_json
 
 on:
   schedule:
-     - cron: '23 * * * *'  # Runs every 45th minute of every hour in IST
-  workflow_dispatch:        # Allows manual run as well
+     - cron: '30 * * * *'  # Runs every 45th minute of every hour in IST
+  # workflow_dispatch:        # Allows manual run as well
 
 jobs:
   build:

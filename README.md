@@ -1,30 +1,56 @@
-# Air Quality ETL Pipeline 🚀
+# Air Quality ETL Pipeline
 
-An end-to-end **ETL (Extract, Transform, Load) pipeline** for ingesting, processing, and visualizing **Air Quality Index (AQI) data for India**.  
-The pipeline automates the **hourly collection of air quality data** from the Indian government open data API, processes it in **Snowflake** using **Snowpark & SQL**, and provides **interactive dashboards** built with **Streamlit**.
+An end-to-end ETL (Extract, Transform, Load) pipeline for ingesting, processing, and visualizing Air Quality Index (AQI) data for India.  
+The pipeline automates the hourly collection of air quality data from the Indian government open data API, processes it in Snowflake using Snowpark & SQL, and provides interactive dashboards built with Streamlit.
 
 ---
 
-## 📌 Features
+## Table of Contents
 
-- **Data Ingestion**  
-  - Python scripts fetch hourly AQI data from the public API.  
-  - Data is uploaded into Snowflake external/internal stages.  
+- [Features](#features)
+- [Architecture](#architecture)
+- [Technologies Used](#technologies-used)
+- [License](#license)
 
-- **Data Processing**  
-  - Schemas, staging tables, and dynamic tables created in Snowflake.  
-  - Deduplication & JSON flattening for structured datasets.  
-  - Aggregations for AQI computation at **station, city, and national levels**.  
+---
 
-- **Transformation Logic**  
-  - Custom **Snowflake Python UDFs** to calculate AQI and identify prominent pollutants.  
-  - Data cleaning and standardization pipelines.  
+## Features
 
-- **Visualization**  
-  - Interactive **Streamlit dashboards** powered by Snowflake queries.  
-  - Trend analysis at multiple geographic levels.  
+- **Automated Data Ingestion:**  
+  Fetches hourly AQI data from the Indian government open data API using GitHub Action scripts and uploads it to Snowflake stages.
 
-- **Orchestration & Scheduling**  
-  - **Snowflake Tasks** to run transformations automatically.  
-  - **GitHub Actions** for hourly ingestion and CI/CD integration.  
+- **Data Processing & Transformation:**  
+  Utilizes Snowflake SQL to clean, deduplicate, and transform raw data. Includes custom Python UDFs for AQI calculation and pollutant identification.
 
+- **Aggregation & Analytics:**  
+  Computes AQI at station, city, and national levels. Supports trend analysis and historical data exploration.
+
+- **Interactive Visualization:**  
+  Streamlit dashboards connect to Snowflake for real-time, interactive data exploration and visualization.
+
+- **Orchestration & Scheduling:**  
+  Uses Snowflake Tasks for automated transformations and GitHub Actions for scheduled ingestion and CI/CD.
+
+---
+
+## Architecture
+
+```
+API (Gov Data) → Python Ingestion Scripts → Snowflake Stages → Snowflake Tables (Staging, Processed, Aggregated) → Snowflake UDFs & SQL → Streamlit Dashboards
+```
+
+---
+
+
+## Technologies Used
+
+- **Python**
+- **Snowflake** (Snowpark, SQL, Tasks, UDFs)
+- **Streamlit**
+- **GitHub Actions**
+
+---
+
+## License
+
+This project is licensed under the MIT License.

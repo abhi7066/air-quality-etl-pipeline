@@ -1,144 +1,92 @@
-use role sysadmin;
-use schema dev_db.consumption_sch;
-use warehouse adhoc_wh;
+-- =========================================================
+-- Context: Consumption Layer - Aggregates
+-- =========================================================
+USE ROLE sysadmin;
+USE SCHEMA dev_db.consumption_sch;
+USE WAREHOUSE adhoc_wh;
 
--- step-01
-select 
-    d.measurement_time,
-    l.state,
-    l.city,
-    avg(pm10_avg) as pm10_avg,
-    avg(pm25_avg) as pm25_avg,
-    avg(so2_avg) as so2_avg,
-    avg(no2_avg) as no2_avg,
-    avg(nh3_avg) as nh3_avg,
-    avg(co_avg) as co_avg,
-    avg(o3_avg) as o3_avg
-from 
-    air_quality_fact f
-    join date_dim d on f.date_fk = d.date_pk
-    join location_dim l on f.location_fk = l.location_pk
-group by 
-    1,2,3;
-
--- step-02
-with step01_city_level_data as (
-select 
-    d.measurement_time,
-    l.state,
-    l.city,
-    avg(pm10_avg) as pm10_avg,
-    avg(pm25_avg) as pm25_avg,
-    avg(so2_avg) as so2_avg,
-    avg(no2_avg) as no2_avg,
-    avg(nh3_avg) as nh3_avg,
-    avg(co_avg) as co_avg,
-    avg(o3_avg) as o3_avg
-from 
-    air_quality_fact f
-    join date_dim d on f.date_fk = d.date_pk
-    join location_dim l on f.location_fk = l.location_pk
-group by 
-    1,2,3
+-- =========================================================
+-- Hourly City-Level Aggregation
+-- =========================================================
+CREATE OR REPLACE DYNAMIC TABLE agg_city_fact_hour_level
+    TARGET_LAG = 'DOWNSTREAM'
+    WAREHOUSE  = transform_wh
+AS
+WITH step01_city_level_data AS (
+    SELECT 
+        d.measurement_time,
+        l.country,
+        l.state,
+        l.city,
+        AVG(pm10_avg) AS pm10_avg,
+        AVG(pm25_avg) AS pm25_avg,
+        AVG(so2_avg)  AS so2_avg,
+        AVG(no2_avg)  AS no2_avg,
+        AVG(nh3_avg)  AS nh3_avg,
+        AVG(co_avg)   AS co_avg,
+        AVG(o3_avg)   AS o3_avg
+    FROM air_quality_fact f
+    JOIN date_dim d     ON f.date_fk     = d.date_pk
+    JOIN location_dim l ON f.location_fk = l.location_pk
+    GROUP BY 1,2,3,4
 )
-select 
+SELECT 
     *,
-    prominent_index(PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG)as prominent_pollutant,
-        case
-        when three_sub_index_criteria(pm25_avg,pm10_avg,so2_avg,no2_avg,nh3_avg,co_avg,o3_avg) > 2 then greatest (pm25_avg,pm10_avg,so2_avg,no2_avg,nh3_avg,co_avg,o3_avg)
-        else 0
-        end
-        as aqi
-from 
-    step01_city_level_data;
+    prominent_index(pm25_avg, pm10_avg, so2_avg, no2_avg, nh3_avg, co_avg, o3_avg) AS prominent_pollutant,
+    CASE
+        WHEN three_sub_index_criteria(pm25_avg, pm10_avg, so2_avg, no2_avg, nh3_avg, co_avg, o3_avg) > 2 
+        THEN GREATEST(pm25_avg, pm10_avg, so2_avg, no2_avg, nh3_avg, co_avg, o3_avg)
+        ELSE 0
+    END AS aqi
+FROM step01_city_level_data;
 
+-- Validation
+SELECT * 
+FROM agg_city_fact_hour_level 
+ORDER BY country, state, city, measurement_time
+LIMIT 100;
 
-create or replace dynamic table agg_city_fact_hour_level
-    target_lag='30 min'
-    warehouse=transform_wh
-as 
-with step01_city_level_data as (
-select 
-    d.measurement_time,
-    l.country as country,
-    l.state as state,
-    l.city as city,
-    avg(pm10_avg) as pm10_avg,
-    avg(pm25_avg) as pm25_avg,
-    avg(so2_avg) as so2_avg,
-    avg(no2_avg) as no2_avg,
-    avg(nh3_avg) as nh3_avg,
-    avg(co_avg) as co_avg,
-    avg(o3_avg) as o3_avg
-from 
-    air_quality_fact f
-    join date_dim d on f.date_fk = d.date_pk
-    join location_dim l on f.location_fk = l.location_pk
-group by 
-    1,2,3,4
+SELECT * 
+FROM agg_city_fact_hour_level 
+WHERE city = 'Bengaluru' 
+  AND measurement_time = '2025-09-21 16:00:00.000'
+ORDER BY measurement_time;
+
+-- =========================================================
+-- Daily City-Level Aggregation
+-- =========================================================
+CREATE OR REPLACE DYNAMIC TABLE agg_city_fact_day_level
+    TARGET_LAG = '30 MIN'
+    WAREHOUSE  = transform_wh
+AS
+WITH step01_city_day_level_data AS (
+    SELECT 
+        DATE(measurement_time) AS measurement_date,
+        country,
+        state,
+        city,
+        ROUND(AVG(pm10_avg)) AS pm10_avg,
+        ROUND(AVG(pm25_avg)) AS pm25_avg,
+        ROUND(AVG(so2_avg))  AS so2_avg,
+        ROUND(AVG(no2_avg))  AS no2_avg,
+        ROUND(AVG(nh3_avg))  AS nh3_avg,
+        ROUND(AVG(co_avg))   AS co_avg,
+        ROUND(AVG(o3_avg))   AS o3_avg
+    FROM agg_city_fact_hour_level
+    GROUP BY 1,2,3,4
 )
-select 
+SELECT 
     *,
-    prominent_index(PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG)as prominent_pollutant,
-        case
-        when three_sub_index_criteria(pm25_avg,pm10_avg,so2_avg,no2_avg,nh3_avg,co_avg,o3_avg) > 2 then greatest (pm25_avg,pm10_avg,so2_avg,no2_avg,nh3_avg,co_avg,o3_avg)
-        else 0
-        end
-        as aqi
-from 
-    step01_city_level_data;
+    prominent_index(pm25_avg, pm10_avg, so2_avg, no2_avg, nh3_avg, co_avg, o3_avg) AS prominent_pollutant,
+    CASE
+        WHEN three_sub_index_criteria(pm25_avg, pm10_avg, so2_avg, no2_avg, nh3_avg, co_avg, o3_avg) > 2 
+        THEN GREATEST(pm25_avg, pm10_avg, so2_avg, no2_avg, nh3_avg, co_avg, o3_avg)
+        ELSE 0
+    END AS aqi
+FROM step01_city_day_level_data;
 
-
-select 
-    * 
-from agg_city_fact_hour_level 
-order by 
-    country, state, city, measurement_time
-limit 100;
-
-
-select 
-    * 
-from agg_city_fact_hour_level 
-where 
-    city = 'Bengaluru' and 
-    MEASUREMENT_TIME ='2024-03-04 11:00:00.000'
-order by 
-    country, state, city, measurement_time
-limit 100;
-
-
-
-
-create or replace dynamic table agg_city_fact_day_level
-    target_lag='30 min'
-    warehouse=transform_wh
-as 
-with step01_city_day_level_data as (
-select 
-    date(measurement_time) as measurement_date,
-    country as country,
-    state as state,
-    city as city,
-    round(avg(pm10_avg)) as pm10_avg,
-    round(avg(pm25_avg)) as pm25_avg,
-    round(avg(so2_avg)) as so2_avg,
-    round(avg(no2_avg)) as no2_avg,
-    round(avg(nh3_avg)) as nh3_avg,
-    round(avg(co_avg)) as co_avg,
-    round(avg(o3_avg)) as o3_avg
-from 
-    agg_city_fact_hour_level
-group by 
-    1,2,3,4
-)
-select 
-    *,
-    prominent_index(PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG)as prominent_pollutant,
-        case
-        when three_sub_index_criteria(pm25_avg,pm10_avg,so2_avg,no2_avg,nh3_avg,co_avg,o3_avg) > 2 then greatest (pm25_avg,pm10_avg,so2_avg,no2_avg,nh3_avg,co_avg,o3_avg)
-        else 0
-        end
-        as aqi
-from 
-    step01_city_day_level_data;
+-- Validation
+SELECT * 
+FROM agg_city_fact_day_level 
+ORDER BY country, state, city, measurement_date
+LIMIT 100;

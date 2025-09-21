@@ -109,4 +109,4 @@ JOIN date_dim d      ON f.date_fk = d.date_pk
 JOIN location_dim l  ON f.location_fk = l.location_pk
 WHERE l.city = 'Chittoor'
   AND l.station = 'Gangineni Cheruvu, Chittoor - APPCB'
-  AND f.index_record_ts = '2024-03-01 18:00:00.000';
+  AND f.index_record_ts = '2025-09-21 16:00:00.000';

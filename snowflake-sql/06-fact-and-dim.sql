@@ -1,205 +1,112 @@
-use role sysadmin;
-use schema dev_db.consumption_sch;
-use warehouse adhoc_wh;
+-- =========================================================
+-- Context: Consumption Layer - Star Schema
+-- =========================================================
+USE ROLE sysadmin;
+USE SCHEMA dev_db.consumption_sch;
+USE WAREHOUSE adhoc_wh;
 
-
--- date dimention table
--- level-1 
-select 
-        index_record_ts as measurement_time,
-        year(index_record_ts) as aqi_year,
-        month(index_record_ts) as aqi_month,
-        quarter(index_record_ts) as aqi_quarter,
-        day(index_record_ts) aqi_day,
-        hour(index_record_ts) aqi_hour,
-    from 
-        dev_db.clean_sch.clean_flatten_aqi_dt
-        group by 1,2,3,4,5,6;
-
-with step01_hr_data as (
-select 
-        index_record_ts as measurement_time,
-        year(index_record_ts) as aqi_year,
-        month(index_record_ts) as aqi_month,
-        quarter(index_record_ts) as aqi_quarter,
-        day(index_record_ts) aqi_day,
-        hour(index_record_ts)+1 aqi_hour,
-    from 
-        dev_db.clean_sch.clean_flatten_aqi_dt
-        group by 1,2,3,4,5,6
+-- =========================================================
+-- Date Dimension
+-- =========================================================
+-- Extract unique timestamps with hierarchy breakdown
+CREATE OR REPLACE DYNAMIC TABLE date_dim
+    TARGET_LAG = 'DOWNSTREAM'
+    WAREHOUSE  = transform_wh
+AS
+WITH step01_hr_data AS (
+    SELECT 
+        index_record_ts AS measurement_time,
+        YEAR(index_record_ts)    AS aqi_year,
+        MONTH(index_record_ts)   AS aqi_month,
+        QUARTER(index_record_ts) AS aqi_quarter,
+        DAY(index_record_ts)     AS aqi_day,
+        HOUR(index_record_ts) + 1 AS aqi_hour
+    FROM dev_db.clean_sch.clean_flatten_aqi_dt
+    GROUP BY 1,2,3,4,5,6
 )
-select 
-    hash(measurement_time) as date_pk,
+SELECT 
+    HASH(measurement_time) AS date_pk,
     *
-from step01_hr_data
-order by aqi_year,aqi_month,aqi_day,aqi_hour;
+FROM step01_hr_data
+ORDER BY aqi_year, aqi_month, aqi_day, aqi_hour;
 
+-- Validate
+SELECT * FROM date_dim LIMIT 10;
 
-create or replace dynamic table date_dim
-    target_lag='DOWNSTREAM'
-    warehouse=transform_wh
-as
-with step01_hr_data as (
-select 
-        index_record_ts as measurement_time,
-        year(index_record_ts) as aqi_year,
-        month(index_record_ts) as aqi_month,
-        quarter(index_record_ts) as aqi_quarter,
-        day(index_record_ts) aqi_day,
-        hour(index_record_ts)+1 aqi_hour,
-    from 
-        dev_db.clean_sch.clean_flatten_aqi_dt
-        group by 1,2,3,4,5,6
-)
-select 
-    hash(measurement_time) as date_pk,
-    *
-from step01_hr_data
-order by aqi_year,aqi_month,aqi_day,aqi_hour;
-
-select * from date_dim;
-
-
-
--- location dimention
--- step-1
-select 
-    LATITUDE,
-    LONGITUDE,
-    COUNTRY,
-    STATE,
-    CITY,
-    STATION,
-from 
-    dev_db.clean_sch.clean_flatten_aqi_dt
-    group by 1,2,3,4,5,6;
-
--- step-2 with 
-
-with step01_unique_data as (
-select 
-    LATITUDE,
-    LONGITUDE,
-    COUNTRY,
-    STATE,
-    CITY,
-    STATION,
-from 
-    dev_db.clean_sch.clean_flatten_aqi_dt
-    group by 1,2,3,4,5,6
-)
-select 
-    hash(LATITUDE,LONGITUDE) as location_pk,
-    *
-from step01_unique_data
-order by 
-    country, STATE, city, station;
-
-
-create or replace dynamic table location_dim
-    target_lag='DOWNSTREAM'
-    warehouse=transform_wh
-as
-with step01_unique_data as (
-select 
-    LATITUDE,
-    LONGITUDE,
-    COUNTRY,
-    STATE,
-    CITY,
-    STATION,
-from 
-    dev_db.clean_sch.clean_flatten_aqi_dt
-    group by 1,2,3,4,5,6
-)
-select 
-    hash(LATITUDE,LONGITUDE) as location_pk,
-    *
-from step01_unique_data
-order by 
-    country, STATE, city, station;
-
-    
--- fact table
--- step-01
-select 
-        index_record_ts,
-        year(index_record_ts) as aqi_year,
-        month(index_record_ts) as aqi_month,
-        quarter(index_record_ts) as aqi_quarter,
-        day(index_record_ts) aqi_day,
-        hour(index_record_ts) aqi_hour,
+-- =========================================================
+-- Location Dimension
+-- =========================================================
+-- Extract unique station metadata
+CREATE OR REPLACE DYNAMIC TABLE location_dim
+    TARGET_LAG = 'DOWNSTREAM'
+    WAREHOUSE  = transform_wh
+AS
+WITH step01_unique_data AS (
+    SELECT 
+        latitude,
+        longitude,
         country,
         state,
         city,
-        station,
-        latitude,
-        longitude,
-        pm10_avg,
-        pm25_avg,
-        so2_avg,
-        no2_avg,
-        nh3_avg,
-        co_avg,
-        o3_avg,
-        prominent_index(PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG)as prominent_pollutant,
-        case
-        when three_sub_index_criteria(PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG) > 2 then greatest (PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG)
-        else 0
-        end
-    as AQI
-    from dev_db.clean_sch.clean_flatten_aqi_dt
-    limit 1000;
-    
+        station
+    FROM dev_db.clean_sch.clean_flatten_aqi_dt
+    GROUP BY 1,2,3,4,5,6
+)
+SELECT 
+    HASH(latitude, longitude) AS location_pk,
+    *
+FROM step01_unique_data
+ORDER BY country, state, city, station;
 
+-- Validate
+SELECT * FROM location_dim LIMIT 10;
 
--- level-02
-select 
-        hash(index_record_ts) as date_fk,
-        hash(latitude,longitude) as location_fk,
-        pm10_avg,
-        pm25_avg,
-        so2_avg,
-        no2_avg,
-        nh3_avg,
-        co_avg,
-        o3_avg,
-        prominent_index(PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG)as prominent_pollutant,
-        case
-        when three_sub_index_criteria(PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG) > 2 then greatest (PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG)
-        else 0
-        end
-    as aqi
-    from dev_db.clean_sch.clean_flatten_aqi_dt
-    where 
-        city = 'Chittoor' and 
-        station =  'Gangineni Cheruvu, Chittoor - APPCB' and 
-        INDEX_RECORD_TS = '2024-03-01 18:00:00.000';
-        
-select * from date_dim where date_pk = 1635727249877756006;
-select * from location_dim where location_pk = 3830234801511030131;
+-- =========================================================
+-- Fact Table: Air Quality Metrics
+-- =========================================================
+CREATE OR REPLACE DYNAMIC TABLE air_quality_fact
+    TARGET_LAG = 'DOWNSTREAM'
+    WAREHOUSE  = transform_wh
+AS
+SELECT 
+    -- Primary Key: timestamp + location
+    HASH(index_record_ts, latitude, longitude) AS aqi_pk,
 
+    -- Foreign Keys
+    HASH(index_record_ts)       AS date_fk,
+    HASH(latitude, longitude)   AS location_fk,
 
--- Fact Table
-create or replace dynamic table air_quality_fact
-    target_lag='30 min'
-    warehouse=transform_wh
-as
-select 
-        hash(index_record_ts,latitude,longitude) aqi_pk,
-        hash(index_record_ts) as date_fk,
-        hash(latitude,longitude) as location_fk,
-        pm10_avg,
-        pm25_avg,
-        so2_avg,
-        no2_avg,
-        nh3_avg,
-        co_avg,
-        o3_avg,
-        prominent_index(PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG)as prominent_pollutant,
-        case
-        when three_sub_index_criteria(PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG) > 2 then greatest (PM25_AVG,PM10_AVG,SO2_AVG,NO2_AVG,NH3_AVG,CO_AVG,O3_AVG)
-        else 0
-        end
-    as aqi
-    from dev_db.clean_sch.clean_flatten_aqi_dt
+    -- Pollutant Metrics
+    pm10_avg,
+    pm25_avg,
+    so2_avg,
+    no2_avg,
+    nh3_avg,
+    co_avg,
+    o3_avg,
+
+    -- Derived Metrics
+    prominent_index(pm25_avg, pm10_avg, so2_avg, no2_avg, nh3_avg, co_avg, o3_avg) AS prominent_pollutant,
+    CASE
+        WHEN three_sub_index_criteria(pm25_avg, pm10_avg, so2_avg, no2_avg, nh3_avg, co_avg, o3_avg) > 2 
+        THEN GREATEST(pm25_avg, pm10_avg, so2_avg, no2_avg, nh3_avg, co_avg, o3_avg)
+        ELSE 0
+    END AS aqi
+
+FROM dev_db.clean_sch.clean_flatten_aqi_dt;
+
+-- Validate
+SELECT * FROM air_quality_fact LIMIT 10;
+
+-- Example: Lookup with dimensions
+SELECT 
+    f.index_record_ts,
+    d.aqi_year, d.aqi_month, d.aqi_day, d.aqi_hour,
+    l.country, l.state, l.city, l.station,
+    f.pm25_avg, f.pm10_avg, f.aqi, f.prominent_pollutant
+FROM air_quality_fact f
+JOIN date_dim d      ON f.date_fk = d.date_pk
+JOIN location_dim l  ON f.location_fk = l.location_pk
+WHERE l.city = 'Chittoor'
+  AND l.station = 'Gangineni Cheruvu, Chittoor - APPCB'
+  AND f.index_record_ts = '2024-03-01 18:00:00.000';

@@ -1,69 +1,77 @@
--- use sysadmin role.
-use role sysadmin;
+-- =========================================================
+-- STEP 1: Use correct role
+-- =========================================================
+USE ROLE sysadmin;
 
--- create a warehoue before you try this..
+-- =========================================================
+-- STEP 2: Create DEV_DB and schemas for ETL lifecycle
+-- =========================================================
+CREATE DATABASE IF NOT EXISTS dev_db;
 
--- create development database/schema  if does not exist
-create database if not exists dev_db;
-create schema if not exists dev_db.stage_sch;
-create schema if not exists dev_db.clean_sch;
-create schema if not exists dev_db.consumption_sch;
-create schema if not exists dev_db.publish_sch;
+-- Layered schemas
+CREATE SCHEMA IF NOT EXISTS dev_db.stage_sch;       -- raw ingestion from stage
+CREATE SCHEMA IF NOT EXISTS dev_db.clean_sch;       -- cleaning/transformation
+CREATE SCHEMA IF NOT EXISTS dev_db.consumption_sch; -- downstream consumption
+CREATE SCHEMA IF NOT EXISTS dev_db.publish_sch;     -- published for BI/ML
 
-show schemas in database dev_db;
--- visit the object explorer home page from webui.
+-- Check schemas
+SHOW SCHEMAS IN DATABASE dev_db;
 
--- having load_wh warehouse
-create warehouse if not exists load_wh
-     comment = 'this is load warehosue for loading all the JSON files'
-     warehouse_size = 'medium' 
-     auto_resume = true 
-     auto_suspend = 60 
-     enable_query_acceleration = false 
-     warehouse_type = 'standard' 
-     min_cluster_count = 1 
-     max_cluster_count = 1 
-     scaling_policy = 'standard'
-     initially_suspended = true;
+-- =========================================================
+-- STEP 3: Create warehouses for different workloads
+-- =========================================================
 
--- all the ETL workload will be manage by it.
-create warehouse if not exists transform_wh
-     comment = 'this is ETL warehosue for all loading activity' 
-     warehouse_size = 'x-small' 
-     auto_resume = true 
-     auto_suspend = 60 
-     enable_query_acceleration = false 
-     warehouse_type = 'standard' 
-     min_cluster_count = 1 
-     max_cluster_count = 1 
-     scaling_policy = 'standard'
-     initially_suspended = true;
+-- Warehouse for bulk JSON ingestion
+CREATE WAREHOUSE IF NOT EXISTS load_wh
+     COMMENT = 'Warehouse for loading JSON files from stage'
+     WAREHOUSE_SIZE = 'MEDIUM' 
+     AUTO_RESUME = TRUE 
+     AUTO_SUSPEND = 60 
+     ENABLE_QUERY_ACCELERATION = FALSE 
+     WAREHOUSE_TYPE = 'STANDARD' 
+     MIN_CLUSTER_COUNT = 1 
+     MAX_CLUSTER_COUNT = 1 
+     SCALING_POLICY = 'STANDARD'
+     INITIALLY_SUSPENDED = TRUE;
 
--- specific virtual warehouse with differt resume time (for streamlit, it should be longer)
- create warehouse if not exists streamlit_wh
-     comment = 'this is streamlit virtua warehouse' 
-     warehouse_size = 'x-small' 
-     auto_resume = true
-     auto_suspend = 600 
-     enable_query_acceleration = false 
-     warehouse_type = 'standard' 
-     min_cluster_count = 1 
-     max_cluster_count = 1 
-     scaling_policy = 'standard'
-     initially_suspended = true;
+-- Warehouse for ETL/transform jobs
+CREATE WAREHOUSE IF NOT EXISTS transform_wh
+     COMMENT = 'Warehouse for ETL/transform workloads' 
+     WAREHOUSE_SIZE = 'X-SMALL' 
+     AUTO_RESUME = TRUE 
+     AUTO_SUSPEND = 60 
+     ENABLE_QUERY_ACCELERATION = FALSE 
+     WAREHOUSE_TYPE = 'STANDARD' 
+     MIN_CLUSTER_COUNT = 1 
+     MAX_CLUSTER_COUNT = 1 
+     SCALING_POLICY = 'STANDARD'
+     INITIALLY_SUSPENDED = TRUE;
 
--- having adhoc warehouse
-create warehouse if not exists adhoc_wh
-     comment = 'this is adhoc warehosue for all adhoc & development activities' 
-     warehouse_size = 'x-small' 
-     auto_resume = true 
-     auto_suspend = 60 
-     enable_query_acceleration = false 
-     warehouse_type = 'standard' 
-     min_cluster_count = 1 
-     max_cluster_count = 1 
-     scaling_policy = 'standard'
-     initially_suspended = true;
+-- Longer-running Streamlit warehouse
+CREATE WAREHOUSE IF NOT EXISTS streamlit_wh
+     COMMENT = 'Warehouse for Streamlit applications' 
+     WAREHOUSE_SIZE = 'X-SMALL' 
+     AUTO_RESUME = TRUE
+     AUTO_SUSPEND = 600     -- longer idle timeout for apps
+     ENABLE_QUERY_ACCELERATION = FALSE 
+     WAREHOUSE_TYPE = 'STANDARD' 
+     MIN_CLUSTER_COUNT = 1 
+     MAX_CLUSTER_COUNT = 1 
+     SCALING_POLICY = 'STANDARD'
+     INITIALLY_SUSPENDED = TRUE;
 
-show warehouses;
--- visit the warehouse home page from webui.
+-- Ad-hoc dev/testing warehouse
+CREATE WAREHOUSE IF NOT EXISTS adhoc_wh
+     COMMENT = 'Warehouse for adhoc & dev activities' 
+     WAREHOUSE_SIZE = 'X-SMALL' 
+     AUTO_RESUME = TRUE 
+     AUTO_SUSPEND = 60 
+     ENABLE_QUERY_ACCELERATION = FALSE 
+     WAREHOUSE_TYPE = 'STANDARD' 
+     MIN_CLUSTER_COUNT = 1 
+     MAX_CLUSTER_COUNT = 1 
+     SCALING_POLICY = 'STANDARD'
+     INITIALLY_SUSPENDED = TRUE;
+
+-- Check warehouses
+SHOW WAREHOUSES;

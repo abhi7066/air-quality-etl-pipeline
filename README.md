@@ -43,7 +43,7 @@ API (Gov Data) → Python Ingestion Scripts → Snowflake Stages → Snowflake T
 
 ## Project Images
 
-![ETL Pipeline Architecture](assets/architecture1.png)
+![ETL Pipeline Architecture](assets/architecture.png)
 *ETL Pipeline Architecture*
 
 ![Sample Dashboard](assets/dashboard1.png)

@@ -41,6 +41,24 @@ API (Gov Data) → Python Ingestion Scripts → Snowflake Stages → Snowflake T
 
 ---
 
+## Project Images
+
+![ETL Pipeline Architecture](assets/architecture.png)
+*ETL Pipeline Architecture*
+
+![Sample Dashboard](assets/dashboard1.png)
+*Sample Streamlit Dashboard*
+
+![Sample Dashboard](assets/dashboard2.png)
+*Sample Streamlit Dashboard*
+
+![Sample Dashboard](assets/dashboard3.png)
+*Sample Streamlit Dashboard*
+
+<!-- Add or update image filenames as per your assets folder -->
+
+---
+
 
 ## Technologies Used
 

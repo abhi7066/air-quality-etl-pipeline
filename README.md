@@ -55,6 +55,12 @@ API (Gov Data) → Python Ingestion Scripts → Snowflake Stages → Snowflake T
 ![Sample Dashboard](assets/dashboard3.png)
 *Sample Streamlit Dashboard*
 
+![Schema Diagram](assets/schema1.png)
+*Schema Design*
+
+![Sample Dashboard](assets/schema2.png)
+*Schema Design*
+
 <!-- Add or update image filenames as per your assets folder -->
 
 ---
